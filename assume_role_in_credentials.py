@@ -2,6 +2,8 @@ import boto3
 import configparser
 import os.path
 from pprint import pprint
+import sys
+
 
 # Some other SDKs/tools sometimes have poor support for assume roles/profiles
 # This looks into your credentials file and will attempt to assume a role using the information inside
@@ -25,6 +27,11 @@ def read_credentials_file():
 
 
 def assume_role(config, target_role, session_name="TestSession"):
+
+    if not config.has_option(target_role, 'role_arn') or not config.has_option(target_role, 'source_profile'):
+        print('Target role {} does not have a role to assume or a source_profile set'.format(target_role))
+        sys.exit(-1)
+
     source = config[target_role]['source_profile']
     client = boto3.client('sts',
                           aws_access_key_id=config[source]['aws_access_key_id'],
@@ -32,6 +39,7 @@ def assume_role(config, target_role, session_name="TestSession"):
                           )
 
     print('Attempting to assume role "{}"'.format(target_role))
+
     if config.has_option(target_role, 'mfa_serial'):
         mfa = config[target_role]['mfa_serial']
         token = input('Enter code for {}: '.format(mfa))
@@ -61,6 +69,8 @@ def assume_role(config, target_role, session_name="TestSession"):
     print('export AWS_ACCESS_KEY_ID={}'.format(session_key_id))
     print('export AWS_SECRET_ACCESS_KEY={}'.format(session_secret))
     print('export AWS_SESSION_TOKEN={}'.format(session_token))
+    sys.exit(0)
+
 
 if __name__ == '__main__':
     credentials_config = read_credentials_file()
