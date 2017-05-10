@@ -27,7 +27,6 @@ def read_credentials_file():
 
 
 def assume_role(config, target_role, session_name="TestSession"):
-
     if not config.has_option(target_role, 'role_arn') or not config.has_option(target_role, 'source_profile'):
         print('"{}" does not have a "role_arn" set to assume or a "source_profile" set'.format(target_role))
         sys.exit(-1)
@@ -72,13 +71,17 @@ def assume_role(config, target_role, session_name="TestSession"):
     sys.exit(0)
 
 
-if __name__ == '__main__':
+def main():
     credentials_config = read_credentials_file()
     profile_map = {}
     for i, section in enumerate(credentials_config.sections()):
         profile_map[str(i)] = section
     print("Profiles/Roles from AWS credentials file")
-    for k,v in profile_map.items():
-        print('{}: {}'.format(k,v))
+    for k, v in profile_map.items():
+        print('{}: {}'.format(k, v))
     option = input('Enter number of role to assume: ')
     assume_role(credentials_config, profile_map[option])
+
+
+if __name__ == '__main__':
+    main()
