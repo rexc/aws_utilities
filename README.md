@@ -1,6 +1,6 @@
 # aws_utilities
 
-Some useful scripts usually python to help in when dealing with AWS
+Some useful scripts usually python to help when working with AWS
 
 ## Install/Uninstall
 
@@ -17,20 +17,34 @@ This should all you call these from the commandline or you can run them directly
 ## Scripts
 
 * assume_role - reads your credentials file and spits out temp credentials for that profile that are valid for an hour,
-these can be exported to start a new shell
+these can be exported to start a new shell, useful for ad-hoc work or when sdk/toolkits don't correctly assume roles.
 
 ### Example
+
+Sample credentials file
+```
+[default]
+aws_access_key_id = <blah>
+aws_secret_access_key = <blah>
+
+[rex.chan]
+aws_access_key_id = <blah>
+aws_secret_access_key = <blah>
+
+[apps-nonprod]
+role_arn = arn:aws:iam::12346789:role/SuperDuper
+mfa_serial = arn:aws:iam::123456727141:mfa/rex.chan
+source_profile = rex.chan
+
+```
+
+Command line:
 ```
 (venv_36) bash$ assume_role
 Profiles/Roles from AWS credentials file
 0: default
 1: rex.chan
 2: apps-nonprod
-3: apps-prod
-4: services-nonprod
-5: services-nonprod-ro
-6: services-prod
-7: services-prod-ro
 Enter number of role to assume: 2
 Attempting to assume role "apps-nonprod"
 Enter code for arn:aws:iam::123456727141:mfa/rex.chan: 123456
