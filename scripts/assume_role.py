@@ -1,29 +1,19 @@
 import boto3
 import configparser
 import os.path
-from pprint import pprint
 import sys
-
 
 # Some other SDKs/tools sometimes have poor support for assume roles/profiles
 # This looks into your credentials file and will attempt to assume a role using the information inside
 # the config file itself
+CREDENTIALS_LOCATION = '~/.aws/credentials'
+
 
 def read_credentials_file():
-    credentials_file = os.path.expanduser('~/.aws/credentials')
-    exists = os.path.isfile(credentials_file)
-
-    if exists:
-        config = configparser.ConfigParser()
-        config.read_file(open(credentials_file))
-        # for section in config.sections():
-        #     print(section)
-        #     for k, v in config[section].items():
-        #         print('{}:{}'.format(k, v))
-        return config
-    else:
-        # print('No credentials file: {}'.format(credentials_file))
-        return None
+    credentials_file = os.path.expanduser(CREDENTIALS_LOCATION)
+    config = configparser.ConfigParser()
+    config.read_file(open(credentials_file))
+    return config
 
 
 def assume_role(config, profile_role, session_name="TestSession", duration=3600):
@@ -46,9 +36,7 @@ def assume_role(config, profile_role, session_name="TestSession", duration=3600)
         response = client.assume_role(
             RoleArn=config[profile_role]['role_arn'],
             RoleSessionName=session_name,
-            # Policy='string',
             DurationSeconds=duration,
-            # ExternalId='string',
             SerialNumber=mfa,
             TokenCode=token
         )
@@ -56,9 +44,7 @@ def assume_role(config, profile_role, session_name="TestSession", duration=3600)
         response = client.assume_role(
             RoleArn=config[profile_role]['role_arn'],
             RoleSessionName=session_name,
-            # Policy='string',
             DurationSeconds=duration,
-            # ExternalId='string',
         )
     session_key_id = response['Credentials']['AccessKeyId']
     session_secret = response['Credentials']['SecretAccessKey']
@@ -72,15 +58,26 @@ def assume_role(config, profile_role, session_name="TestSession", duration=3600)
 
 
 def main():
-    credentials_config = read_credentials_file()
-    profile_map = {}
-    for i, section in enumerate(credentials_config.sections()):
-        profile_map[str(i)] = section
-    print("Profiles/Roles from AWS credentials file")
-    for k, v in profile_map.items():
-        print('{}: {}'.format(k, v))
-    option = input('Enter number of role to assume: ')
-    assume_role(credentials_config, profile_map[option])
+    try:
+        credentials_config = read_credentials_file()
+        profile_map = {}
+
+        for i, section in enumerate(credentials_config.sections()):
+            profile_map[str(i)] = section
+        print("Profiles/Roles from AWS credentials file")
+        for k, v in profile_map.items():
+            print('{}: {}'.format(k, v))
+
+        option = input('Enter number of role to assume: ')
+        assume_role(credentials_config, profile_map[option])
+
+    except (configparser.MissingSectionHeaderError, configparser.NoSectionError, configparser.NoOptionError) as e:
+        print('Not a valid crdentials file')
+        print(str(e))
+        sys.exit(-1)
+    except (IsADirectoryError, FileNotFoundError) as e:
+        print(str(e))
+        sys.exit(-1)
 
 
 if __name__ == '__main__':
