@@ -1,8 +1,8 @@
-import requests
+from requests import get
 from pprint import pprint
 import os
-import time
-import json
+from time import time
+from json import load, dump
 import configparser
 from functools import partial
 
@@ -47,11 +47,11 @@ def cached(cachefile, cache_ttl_sec):
     def decorator(func):
         def wrapped(*args, **kwargs):
             if os.path.exists(cachefile):
-                cur_time_epoch = time.time()
+                cur_time_epoch = time()
                 if cur_time_epoch - os.stat(cachefile).st_mtime < cache_ttl_sec:
                     with open(cachefile, 'rb') as cachehandle:
                         print("using cached result from '%s'" % cachefile)
-                        return json.load(cachehandle)
+                        return load(cachehandle)
 
             # execute the function with all arguments passed
             res = func(*args, **kwargs)
@@ -59,7 +59,7 @@ def cached(cachefile, cache_ttl_sec):
             # write to cache file
             with open(cachefile, 'w') as cachehandle:
                 print("saving result to cache '%s'" % cachefile)
-                json.dump(res, cachehandle, indent=2)
+                dump(res, cachehandle, indent=2)
             return res
 
         return wrapped
@@ -69,35 +69,35 @@ def cached(cachefile, cache_ttl_sec):
 
 @cached('available_objects.json', WEEK)
 def get_available_objects():
-    r = requests.get(api_url['available'], params=api_payload)
+    r = get(api_url['available'], params=api_payload)
     return r.json()
 
 
 def get_object_info(asset_name, cache_ttl_sec=WEEK):
     cachefile = asset_name + 'Info.json'
     if os.path.exists(cachefile):
-        cur_time_epoch = time.time()
+        cur_time_epoch = time()
         if cur_time_epoch - os.stat(cachefile).st_mtime < cache_ttl_sec:
             with open(cachefile, 'rb') as cachehandle:
                 print("using cached result from '%s'" % cachefile)
-                return json.load(cachehandle)
+                return load(cachehandle)
 
     url = CHAPI_BASE + '/api/' + asset_name + '.json'
-    r = requests.get(url, params=api_payload)
+    r = get(url, params=api_payload)
     with open(cachefile, 'w') as cachehandle:
         print("saving result to cache '%s'" % cachefile)
-        json.dump(r.json(), cachehandle, indent=2)
+        dump(r.json(), cachehandle, indent=2)
     return r.json()
 
 
 def search(asset_name, include='', cache_ttl_sec=DAY):
     cachefile = asset_name + '.json'
     if os.path.exists(cachefile):
-        cur_time_epoch = time.time()
+        cur_time_epoch = time()
         if cur_time_epoch - os.stat(cachefile).st_mtime < cache_ttl_sec:
             with open(cachefile, 'rb') as cachehandle:
                 print("using cached result from '%s'" % cachefile)
-                return json.load(cachehandle)
+                return load(cachehandle)
 
     payload = {
         'name': asset_name,
@@ -106,11 +106,11 @@ def search(asset_name, include='', cache_ttl_sec=DAY):
 
     payload.update(api_payload)
 
-    r = requests.get(api_url['search'], payload)
+    r = get(api_url['search'], payload)
 
     with open(cachefile, 'w') as cachehandle:
         print("saving result to cache '%s'" % cachefile)
-        json.dump(r.json(), cachehandle, indent=2)
+        dump(r.json(), cachehandle, indent=2)
     return r.json()
 
 
@@ -120,7 +120,7 @@ search_aws_security_group_rule = partial(search, asset_name='AwsSecurityGroupRul
 search_aws_account = partial(search, asset_name='AwsAccount', cache_ttl_sec=WEEK)
 search_aws_vpc_subnets = partial(search, asset_name='AwsVpcSubnet', include='vpc')
 search_aws_vpc = partial(search, asset_name='AwsVpc', cache_ttl_sec=WEEK)
-search_aws_nat_gateway = partial(search, asset_name='AwsNatGateway', cache_ttl_sec=WEEK)
+search_aws_nat_gateway = partial(search, asset_name='AwsNatGateway', cache_ttl_sec=WEEK, include='elastic_ip')
 search_aws_region = partial(search, asset_name='AwsRegion', cache_ttl_sec=WEEK)
 search_aws_eip = partial(search, asset_name='AwsElasticIp', )
 search_aws_cfn_stack = partial(search, asset_name='AwsCloudFormationStack')
@@ -130,12 +130,10 @@ search_aws_image = partial(search, asset_name='AwsImage', )
 search_aws_instance_status = partial(search, asset_name='AwsInstanceStatus', include='instance', cache_ttl_sec=HOUR)
 
 
-
 def main():
-    # get_available_objects()
-
     get_object_info('AwsVpcSubnet')
     search_aws_vpc_subnets()
+
 
 if __name__ == '__main__':
     main()
