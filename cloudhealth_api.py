@@ -116,11 +116,11 @@ def search(asset_name, include='', cache_ttl_sec=DAY):
 
 # Search functions built using partial below
 search_aws_security_group = partial(search, asset_name='AwsSecurityGroup', include='vpc')
-search_aws_security_group_rule = partial(search, asset_name='AwsSecurityGroupRule', include='security_group')
+search_aws_security_group_rule = partial(search, asset_name='AwsSecurityGroupRule')
 search_aws_account = partial(search, asset_name='AwsAccount', cache_ttl_sec=WEEK)
-search_aws_vpc_subnets = partial(search, asset_name='AwsVpcSubnet', include='vpc')
+search_aws_vpc_subnet = partial(search, asset_name='AwsVpcSubnet')
 search_aws_vpc = partial(search, asset_name='AwsVpc', cache_ttl_sec=WEEK)
-search_aws_nat_gateway = partial(search, asset_name='AwsNatGateway', cache_ttl_sec=WEEK, include='elastic_ip')
+search_aws_nat_gateway = partial(search, asset_name='AwsNatGateway', cache_ttl_sec=WEEK)
 search_aws_region = partial(search, asset_name='AwsRegion', cache_ttl_sec=WEEK)
 search_aws_eip = partial(search, asset_name='AwsElasticIp', )
 search_aws_cfn_stack = partial(search, asset_name='AwsCloudFormationStack')
@@ -132,7 +132,7 @@ search_aws_instance_status = partial(search, asset_name='AwsInstanceStatus', inc
 
 def main():
     get_object_info('AwsVpcSubnet')
-    search_aws_vpc_subnets()
+    search_aws_vpc_subnet(include=['availability_zone', 'account'])
 
 
 if __name__ == '__main__':
