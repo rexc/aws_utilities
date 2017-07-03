@@ -6,6 +6,8 @@ from json import load, dump
 import configparser
 from functools import partial
 
+import requests_cache
+
 # See https://github.com/CloudHealth/cht_api_guid for more details about Cloudhealth API
 
 
@@ -13,7 +15,11 @@ WEEK = 604800
 DAY = 86400
 HOUR = 3600
 
+
+requests_cache.install_cache('cloudhealth api', expire_after=HOUR)
+
 CACHE_PATH = 'ch_cache'
+
 
 def read_chapi_key(key_path='~/.cloudhealth'):
     with open(os.path.expanduser(key_path)) as f:
@@ -75,43 +81,19 @@ def get_available_objects():
 
 
 def get_object_info(asset_name, cache_ttl_sec=WEEK):
-    cachefile = CACHE_PATH + '/' + asset_name + 'Info.json'
-    if os.path.exists(cachefile):
-        cur_time_epoch = time()
-        if cur_time_epoch - os.stat(cachefile).st_mtime < cache_ttl_sec:
-            with open(cachefile, 'rb') as cachehandle:
-                print("using cached result from '%s'" % cachefile)
-                return load(cachehandle)
-
     url = CHAPI_BASE + '/api/' + asset_name + '.json'
     r = get(url, params=api_payload)
-    with open(cachefile, 'w') as cachehandle:
-        print("saving result to cache '%s'" % cachefile)
-        dump(r.json(), cachehandle, indent=2)
     return r.json()
 
 
 def search(asset_name, include='', cache_ttl_sec=DAY):
-    cachefile = CACHE_PATH + '/' + asset_name + '.json'
-    if os.path.exists(cachefile):
-        cur_time_epoch = time()
-        if cur_time_epoch - os.stat(cachefile).st_mtime < cache_ttl_sec:
-            with open(cachefile, 'rb') as cachehandle:
-                print("using cached result from '%s'" % cachefile)
-                return load(cachehandle)
-
     payload = {
         'name': asset_name,
         'include': include
     }
 
     payload.update(api_payload)
-
     r = get(api_url['search'], payload)
-
-    with open(cachefile, 'w') as cachehandle:
-        print("saving result to cache '%s'" % cachefile)
-        dump(r.json(), cachehandle, indent=2)
     return r.json()
 
 
