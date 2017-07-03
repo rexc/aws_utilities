@@ -15,6 +15,7 @@ WEEK = 604800
 DAY = 86400
 HOUR = 3600
 
+
 requests_cache.install_cache('cloudhealth api', expire_after=HOUR)
 
 CACHE_PATH = 'ch_cache'
