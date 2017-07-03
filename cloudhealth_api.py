@@ -15,18 +15,6 @@ HOUR = 3600
 
 CACHE_PATH = 'ch_cache'
 
-
-def CachedFile(object):
-    def __init__(self, path, ttl):
-        pass
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self):
-        pass
-
-
 def read_chapi_key(key_path='~/.cloudhealth'):
     with open(os.path.expanduser(key_path)) as f:
         config = configparser.ConfigParser()
