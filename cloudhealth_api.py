@@ -128,8 +128,7 @@ def get_all_azure_objects_info():
 
 
 def main():
-    pprint(search_azure_subscription())
-    pprint(search_azure_subscription())
+    pass
 
 
 if __name__ == '__main__':
