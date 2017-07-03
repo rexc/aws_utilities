@@ -13,6 +13,19 @@ WEEK = 604800
 DAY = 86400
 HOUR = 3600
 
+CACHE_PATH = 'ch_cache'
+
+
+def CachedFile(object):
+    def __init__(self, path, ttl):
+        pass
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self):
+        pass
+
 
 def read_chapi_key(key_path='~/.cloudhealth'):
     with open(os.path.expanduser(key_path)) as f:
@@ -67,14 +80,14 @@ def cached(cachefile, cache_ttl_sec):
     return decorator
 
 
-@cached('available_objects.json', WEEK)
+@cached(CACHE_PATH + '/' + 'AvailableObjects.json', WEEK)
 def get_available_objects():
     r = get(api_url['available'], params=api_payload)
     return r.json()
 
 
 def get_object_info(asset_name, cache_ttl_sec=WEEK):
-    cachefile = asset_name + 'Info.json'
+    cachefile = CACHE_PATH + '/' + asset_name + 'Info.json'
     if os.path.exists(cachefile):
         cur_time_epoch = time()
         if cur_time_epoch - os.stat(cachefile).st_mtime < cache_ttl_sec:
@@ -91,7 +104,7 @@ def get_object_info(asset_name, cache_ttl_sec=WEEK):
 
 
 def search(asset_name, include='', cache_ttl_sec=DAY):
-    cachefile = asset_name + '.json'
+    cachefile = CACHE_PATH + '/' + asset_name + '.json'
     if os.path.exists(cachefile):
         cur_time_epoch = time()
         if cur_time_epoch - os.stat(cachefile).st_mtime < cache_ttl_sec:
@@ -114,7 +127,7 @@ def search(asset_name, include='', cache_ttl_sec=DAY):
     return r.json()
 
 
-# Search functions built using partial below
+# Search functions built using partial below, otherwise we can use revert back to querying them raw
 search_aws_security_group = partial(search, asset_name='AwsSecurityGroup', include='vpc')
 search_aws_security_group_rule = partial(search, asset_name='AwsSecurityGroupRule')
 search_aws_account = partial(search, asset_name='AwsAccount', cache_ttl_sec=WEEK)
@@ -128,11 +141,25 @@ search_aws_az = partial(search, asset_name='AwsAvailabilityZone')
 search_aws_lb = partial(search, asset_name='AwsLoadBalancer', cache_ttl_sec=HOUR)
 search_aws_image = partial(search, asset_name='AwsImage', )
 search_aws_instance_status = partial(search, asset_name='AwsInstanceStatus', include='instance', cache_ttl_sec=HOUR)
+search_aws_tag = partial(search, asset_name='AwsTag')
+search_aws_user = partial(search, asset_name='AwsUser')
+search_azure_subscription = partial(search, asset_name='AzureSubscription')
+
+
+def get_all_aws_objects_info():
+    all_objects = [x for x in get_available_objects() if x.lower().startswith('aws')]
+    for obj in all_objects:
+        get_object_info(obj, cache_ttl_sec=WEEK)
+
+
+def get_all_azure_objects_info():
+    all_objects = [x for x in get_available_objects() if x.lower().startswith('azure')]
+    for obj in all_objects:
+        get_object_info(obj, cache_ttl_sec=WEEK)
 
 
 def main():
-    get_object_info('AwsVpcSubnet')
-    search_aws_vpc_subnet(include=['availability_zone', 'account'])
+    pass
 
 
 if __name__ == '__main__':
