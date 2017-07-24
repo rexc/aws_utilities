@@ -8,13 +8,12 @@ from functools import partial
 
 import requests_cache
 
-# See https://github.com/CloudHealth/cht_api_guid for more details about Cloudhealth API
+# See https://github.com/CloudHealth/cht_api_guide for more details about Cloudhealth API
 
 
 WEEK = 604800
 DAY = 86400
 HOUR = 3600
-
 
 requests_cache.install_cache('cloudhealth api', expire_after=HOUR)
 
@@ -99,7 +98,7 @@ def search(asset_name, include='', cache_ttl_sec=DAY):
 
 # Search functions built using partial below, otherwise we can use revert back to querying them raw
 search_aws_security_group = partial(search, asset_name='AwsSecurityGroup', include='vpc')
-search_aws_security_group_rule = partial(search, asset_name='AwsSecurityGroupRule')
+search_aws_security_group_rule = partial(search, asset_name='AwsSecurityGroupRule', include='security_group')
 search_aws_account = partial(search, asset_name='AwsAccount', cache_ttl_sec=WEEK)
 search_aws_vpc_subnet = partial(search, asset_name='AwsVpcSubnet')
 search_aws_vpc = partial(search, asset_name='AwsVpc', cache_ttl_sec=WEEK)
@@ -128,7 +127,18 @@ def get_all_azure_objects_info():
         get_object_info(obj, cache_ttl_sec=WEEK)
 
 
+def dump_api_call(filename, api_func):
+
+    with open(filename, 'w') as f:
+        dump(api_func, f, indent=2)
+
+
 def main():
+    # pprint(get_object_info('AwsVpc'))
+    # pprint(get_object_info('AwsVpcSubnet'))
+
+    # dump_api_call('security_group_rules.json', search_aws_security_group_rule())
+    # dump_api_call('vpc_subnets.json', search_aws_vpc_subnet())
     pass
 
 
