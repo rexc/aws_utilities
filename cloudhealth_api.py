@@ -5,6 +5,7 @@ from time import time
 from json import load, dump
 import configparser
 from functools import partial
+import ipaddress
 
 import requests_cache
 
@@ -15,73 +16,54 @@ WEEK = 604800
 DAY = 86400
 HOUR = 3600
 
+CHAPI_BASE = 'https://chapi.cloudhealthtech.com'
 requests_cache.install_cache('cloudhealth api', expire_after=HOUR)
 
-CACHE_PATH = 'ch_cache'
-
-
-def read_chapi_key(key_path='~/.cloudhealth'):
-    with open(os.path.expanduser(key_path)) as f:
-        config = configparser.ConfigParser()
-        config.read_file(f)
-        return config.get('default', 'api_key')
-
-
-chapi_key = read_chapi_key()
-chapi_api_key_name = 'api_key'
-
-api_payload = {chapi_api_key_name: chapi_key}
-
-CHAPI_BASE = 'https://chapi.cloudhealthtech.com'
-
-apis_map = {
+API_MAP = {
     'available': 'api.json',
     'search': 'api/search.json'
 }
 
-api_url = {k: CHAPI_BASE + '/' + v for k, v in apis_map.items()}
+API_URL = {k: CHAPI_BASE + '/' + v for k, v in API_MAP.items()}
 
 
-def cached(cachefile, cache_ttl_sec):
-    """
-    Decorator to persist calls to disk
-    :param cachefile: name of file with json
-    :param cache_ttl_sec: If the file is older than this, ignore cache
-    :return: 
-    """
-
-    def decorator(func):
-        def wrapped(*args, **kwargs):
-            if os.path.exists(cachefile):
-                cur_time_epoch = time()
-                if cur_time_epoch - os.stat(cachefile).st_mtime < cache_ttl_sec:
-                    with open(cachefile, 'rb') as cachehandle:
-                        print("using cached result from '%s'" % cachefile)
-                        return load(cachehandle)
-
-            # execute the function with all arguments passed
-            res = func(*args, **kwargs)
-
-            # write to cache file
-            with open(cachefile, 'w') as cachehandle:
-                print("saving result to cache '%s'" % cachefile)
-                dump(res, cachehandle, indent=2)
-            return res
-
-        return wrapped
-
-    return decorator
+class Credential(object):
+    def __init__(self, key_path='~/.cloudhealth'):
+        self.api_key = None
+        with open(os.path.expanduser(key_path)) as f:
+            config = configparser.ConfigParser()
+            config.read_file(f)
+            self.api_key = {'api_key': config.get('default', 'api_key')}
 
 
-@cached(CACHE_PATH + '/' + 'AvailableObjects.json', WEEK)
+class NetworkEntity(object):
+    def __init__(self, id, name, cidr):
+        """
+
+        :param id: uniquely aws id ie `vpc-<id>` or `i-<id>`
+        :param name:
+        :param cidr:
+        """
+
+        self.id = id
+        self.name = name
+        self.cidr = cidr
+
+    def __repr__(self):
+        return ' '.join(['{}:{}'.format(k, v) for k, v in self.__dict__.items() if type(k) == str and type(v) == str])
+
+
+credential = Credential()
+
+
 def get_available_objects():
-    r = get(api_url['available'], params=api_payload)
+    r = get(API_URL['available'], params=credential.api_key)
     return r.json()
 
 
-def get_object_info(asset_name, cache_ttl_sec=WEEK):
+def get_object_info(asset_name):
     url = CHAPI_BASE + '/api/' + asset_name + '.json'
-    r = get(url, params=api_payload)
+    r = get(url, params=credential.api_key)
     return r.json()
 
 
@@ -91,8 +73,8 @@ def search(asset_name, include='', cache_ttl_sec=DAY):
         'include': include
     }
 
-    payload.update(api_payload)
-    r = get(api_url['search'], payload)
+    payload.update(credential.api_key)
+    r = get(API_URL['search'], payload)
     return r.json()
 
 
@@ -115,31 +97,53 @@ search_aws_user = partial(search, asset_name='AwsUser')
 search_azure_subscription = partial(search, asset_name='AzureSubscription')
 
 
-def get_all_aws_objects_info():
-    all_objects = [x for x in get_available_objects() if x.lower().startswith('aws')]
-    for obj in all_objects:
-        get_object_info(obj, cache_ttl_sec=WEEK)
+def get_all_objects_info(starts_with):
+    return [get_object_info(x) for x in get_available_objects() if x.lower().startswith(starts_with)]
 
 
-def get_all_azure_objects_info():
-    all_objects = [x for x in get_available_objects() if x.lower().startswith('azure')]
-    for obj in all_objects:
-        get_object_info(obj, cache_ttl_sec=WEEK)
+get_all_aws_objects_info = partial(get_all_objects_info, starts_with='aws')
+get_all_azure_objects_info = partial(get_all_objects_info, starts_with='azure')
 
 
-def dump_api_call(filename, api_func):
-
+def save_to_file(filename, api_func):
     with open(filename, 'w') as f:
         dump(api_func, f, indent=2)
 
 
-def main():
-    # pprint(get_object_info('AwsVpc'))
-    # pprint(get_object_info('AwsVpcSubnet'))
+def get_networks_from_aws():
+    vpcs = search_aws_vpc()
+    subnets = search_aws_vpc_subnet()
+    sg_rules = search_aws_security_group_rule()
+    entities = []
+    addresses = set()
+    for vpc in vpcs:
+        entities.append(NetworkEntity(vpc['vpc_id'], vpc['name'], vpc['cidr_block']))
+        addresses.add(vpc['cidr_block'])
+    for subnet in subnets:
+        entities.append(NetworkEntity(subnet['subnet_id'], subnet['name'], subnet['cidr_block']))
+        addresses.add(subnet['cidr_block'])
 
-    # dump_api_call('security_group_rules.json', search_aws_security_group_rule())
-    # dump_api_call('vpc_subnets.json', search_aws_vpc_subnet())
-    pass
+    for rule in sg_rules:
+        cidr_ips = [ip.strip(',') for ip in rule['ip_ranges'].split(' ')]
+        sg_id = rule['security_group']['group_id']
+        name = rule['security_group']['name']
+
+        for cidr in cidr_ips:
+            if cidr != 'All' and cidr != 'None':
+                entities.append(NetworkEntity(sg_id, name, cidr))
+                addresses.add(cidr)
+
+    for address in addresses:
+        ip = ipaddress.ip_network(address)
+
+        print('{}: {}'.format(ip, ip.is_private))
+
+    return addresses
+
+
+def main():
+    pprint(get_all_objects_info(''))
+    pprint(get_all_aws_objects_info())
 
 
 if __name__ == '__main__':
