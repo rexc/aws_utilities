@@ -97,7 +97,7 @@ search_aws_user = partial(search, asset_name='AwsUser')
 search_azure_subscription = partial(search, asset_name='AzureSubscription')
 
 
-def get_all_objects_info(starts_with):
+def get_all_objects_info(starts_with=''):
     return [get_object_info(x) for x in get_available_objects() if x.lower().startswith(starts_with)]
 
 
@@ -115,13 +115,18 @@ def get_networks_from_aws():
     subnets = search_aws_vpc_subnet()
     sg_rules = search_aws_security_group_rule()
     entities = []
-    addresses = set()
+    seen = set()
     for vpc in vpcs:
-        entities.append(NetworkEntity(vpc['vpc_id'], vpc['name'], vpc['cidr_block']))
-        addresses.add(vpc['cidr_block'])
+        network = vpc['cidr_block']
+        if network not in seen:
+            seen.add(network)
+            entities.append(NetworkEntity(vpc['vpc_id'], vpc['name'], network))
+
     for subnet in subnets:
-        entities.append(NetworkEntity(subnet['subnet_id'], subnet['name'], subnet['cidr_block']))
-        addresses.add(subnet['cidr_block'])
+        network = subnet['cidr_block']
+        if network not in seen:
+            entities.append(NetworkEntity(subnet['subnet_id'], subnet['name'], network))
+            seen.add(network)
 
     for rule in sg_rules:
         cidr_ips = [ip.strip(',') for ip in rule['ip_ranges'].split(' ')]
@@ -130,20 +135,20 @@ def get_networks_from_aws():
 
         for cidr in cidr_ips:
             if cidr != 'All' and cidr != 'None':
-                entities.append(NetworkEntity(sg_id, name, cidr))
-                addresses.add(cidr)
+                if cidr not in seen:
+                    entities.append(NetworkEntity(sg_id, name, cidr))
+                    seen.add(cidr)
 
-    for address in addresses:
-        ip = ipaddress.ip_network(address)
+    return entities
 
-        print('{}: {}'.format(ip, ip.is_private))
-
-    return addresses
+def scratch():
+    aws_networks = get_networks_from_aws()
+    pprint(aws_networks)
+    print(len(aws_networks))
 
 
 def main():
-    pprint(get_all_objects_info(''))
-    pprint(get_all_aws_objects_info())
+    scratch()
 
 
 if __name__ == '__main__':
