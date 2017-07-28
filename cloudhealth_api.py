@@ -6,6 +6,10 @@ from json import load, dump
 import configparser
 from functools import partial
 import ipaddress
+import datetime
+from pynamodb.models import Model
+from pynamodb.attributes import UnicodeAttribute
+
 
 import requests_cache
 
@@ -17,7 +21,7 @@ DAY = 86400
 HOUR = 3600
 
 CHAPI_BASE = 'https://chapi.cloudhealthtech.com'
-requests_cache.install_cache('cloudhealth api', expire_after=HOUR)
+requests_cache.install_cache('cloudhealth api', expire_after=DAY)
 
 API_MAP = {
     'available': 'api.json',
@@ -37,7 +41,7 @@ class Credential(object):
 
 
 class NetworkEntity(object):
-    def __init__(self, id, name, cidr):
+    def __init__(self, id, name, cidr, from_port=None, to_port=None, protocol=None):
         """
 
         :param id: uniquely aws id ie `vpc-<id>` or `i-<id>`
@@ -48,6 +52,10 @@ class NetworkEntity(object):
         self.id = id
         self.name = name
         self.cidr = cidr
+        self.from_port = from_port
+        self.to_port = to_port
+        self.protocol = protocol
+        # self.date = datetime.datetime.now().isoformat()
 
     def __repr__(self):
         return ' '.join(['{}:{}'.format(k, v) for k, v in self.__dict__.items() if type(k) == str and type(v) == str])
@@ -67,7 +75,7 @@ def get_object_info(asset_name):
     return r.json()
 
 
-def search(asset_name, include='', cache_ttl_sec=DAY):
+def search(asset_name, include=''):
     payload = {
         'name': asset_name,
         'include': include
@@ -81,17 +89,17 @@ def search(asset_name, include='', cache_ttl_sec=DAY):
 # Search functions built using partial below, otherwise we can use revert back to querying them raw
 search_aws_security_group = partial(search, asset_name='AwsSecurityGroup', include='vpc')
 search_aws_security_group_rule = partial(search, asset_name='AwsSecurityGroupRule', include='security_group')
-search_aws_account = partial(search, asset_name='AwsAccount', cache_ttl_sec=WEEK)
+search_aws_account = partial(search, asset_name='AwsAccount')
 search_aws_vpc_subnet = partial(search, asset_name='AwsVpcSubnet')
-search_aws_vpc = partial(search, asset_name='AwsVpc', cache_ttl_sec=WEEK)
-search_aws_nat_gateway = partial(search, asset_name='AwsNatGateway', cache_ttl_sec=WEEK)
-search_aws_region = partial(search, asset_name='AwsRegion', cache_ttl_sec=WEEK)
-search_aws_eip = partial(search, asset_name='AwsElasticIp', )
+search_aws_vpc = partial(search, asset_name='AwsVpc')
+search_aws_nat_gateway = partial(search, asset_name='AwsNatGateway')
+search_aws_region = partial(search, asset_name='AwsRegion')
+search_aws_eip = partial(search, asset_name='AwsElasticIp')
 search_aws_cfn_stack = partial(search, asset_name='AwsCloudFormationStack')
 search_aws_az = partial(search, asset_name='AwsAvailabilityZone')
-search_aws_lb = partial(search, asset_name='AwsLoadBalancer', cache_ttl_sec=HOUR)
+search_aws_lb = partial(search, asset_name='AwsLoadBalancer')
 search_aws_image = partial(search, asset_name='AwsImage', )
-search_aws_instance_status = partial(search, asset_name='AwsInstanceStatus', include='instance', cache_ttl_sec=HOUR)
+search_aws_instance_status = partial(search, asset_name='AwsInstanceStatus', include='instance')
 search_aws_tag = partial(search, asset_name='AwsTag')
 search_aws_user = partial(search, asset_name='AwsUser')
 search_azure_subscription = partial(search, asset_name='AzureSubscription')
@@ -110,7 +118,16 @@ def save_to_file(filename, api_func):
         dump(api_func, f, indent=2)
 
 
-def get_networks_from_aws():
+def get_networks_from_aws() -> [NetworkEntity]:
+    """
+    Get a list of unique IPv4 addresses from VPC, Subnets, and Security Groups
+
+    Considerations:
+    Security group rules - if a network cidr appears in multiple security groups, the name will be the first one to come back from the API,
+    Security group rules - if there is no cidr it's ignored
+
+    :return:
+    """
     vpcs = search_aws_vpc()
     subnets = search_aws_vpc_subnet()
     sg_rules = search_aws_security_group_rule()
@@ -136,15 +153,20 @@ def get_networks_from_aws():
         for cidr in cidr_ips:
             if cidr != 'All' and cidr != 'None':
                 if cidr not in seen:
-                    entities.append(NetworkEntity(sg_id, name, cidr))
+                    entities.append(NetworkEntity(sg_id, name, cidr, str(rule['from_port']), str(rule['to_port']),
+                                                  rule['protocol']))
                     seen.add(cidr)
 
     return entities
 
+
 def scratch():
     aws_networks = get_networks_from_aws()
-    pprint(aws_networks)
-    print(len(aws_networks))
+    for entity in aws_networks:
+        network = ipaddress.ip_network(entity.cidr)
+        # print(network.hostmask)
+        # print(network.netmask)
+    # pprint(aws_networks)
 
 
 def main():
