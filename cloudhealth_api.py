@@ -10,7 +10,6 @@ import datetime
 from pynamodb.models import Model
 from pynamodb.attributes import UnicodeAttribute
 
-
 import requests_cache
 
 # See https://github.com/CloudHealth/cht_api_guide for more details about Cloudhealth API
@@ -49,8 +48,8 @@ class NetworkEntity(object):
         :param cidr:
         """
 
-        self.id = id
-        self.name = name
+        self.aws_id = id
+        self.aws_resource_name = name
         self.cidr = cidr
         self.from_port = from_port
         self.to_port = to_port
@@ -59,6 +58,21 @@ class NetworkEntity(object):
 
     def __repr__(self):
         return ' '.join(['{}:{}'.format(k, v) for k, v in self.__dict__.items() if type(k) == str and type(v) == str])
+
+
+class NetworkEntityModel(Model):
+    class Meta:
+        table_name = "Network-Entity"
+        region = 'ap-southeast-2'
+
+    address = UnicodeAttribute(hash_key=True)
+    cidr_mask = UnicodeAttribute(range_key=True)
+    aws_resource_name = UnicodeAttribute(null=True)
+    aws_id = UnicodeAttribute(null=True)
+    from_port = UnicodeAttribute(null=True)
+    to_port = UnicodeAttribute(null=True)
+    protocol = UnicodeAttribute(null=True)
+    name = UnicodeAttribute(null=True)
 
 
 credential = Credential()
@@ -160,18 +174,26 @@ def get_networks_from_aws() -> [NetworkEntity]:
     return entities
 
 
-def scratch():
+def create_dynamodb_table():
+    # Scale write capacity down later
+    NetworkEntityModel.create_table(read_capacity_units=1, write_capacity_units=4)
+
+
+def save_networks_to_dynamo_db():
     aws_networks = get_networks_from_aws()
     for entity in aws_networks:
-        network = ipaddress.ip_network(entity.cidr)
-        # print(network.hostmask)
-        # print(network.netmask)
-    # pprint(aws_networks)
+        network, mask = entity.cidr.split('/')
+        dynamo_entity = NetworkEntityModel(network, mask,
+                                           aws_resource_name=entity.aws_resource_name,
+                                           from_port = entity.from_port,
+                                           to_port=entity.to_port,
+                                           protocol=entity.protocol,
+                                           aws_id=entity.aws_id)
+        dynamo_entity.save()
 
 
 def main():
-    scratch()
-
+    pass
 
 if __name__ == '__main__':
     main()
