@@ -18,7 +18,7 @@ This should all you call these from the commandline or you can run them directly
 
 * assume_role - reads your credentials file and spits out temp credentials for that profile that are valid for an hour,
 these can be exported to start a new shell, useful for ad-hoc work or when sdk/toolkits don't correctly assume roles.
-
+* subnets base and prefix - in networks.py, calculate how many subnets and what CIDRs are
 ### Example
 
 Sample credentials file

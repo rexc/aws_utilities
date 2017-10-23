@@ -9,6 +9,6 @@ setup(name='aws_utilties',
       license='MIT',
       packages=['scripts'],
       entry_points={
-          'console_scripts': ['assume_role=scripts.assume_role:main'],
+          'console_scripts': ['assume_role=scripts.assume_role:main', 'subnets=scripts.networks:print_subnets'],
       },
       zip_safe=False)
