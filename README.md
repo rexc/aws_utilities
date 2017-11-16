@@ -18,7 +18,15 @@ This should all you call these from the commandline or you can run them directly
 
 * assume_role - reads your credentials file and spits out temp credentials for that profile that are valid for an hour,
 these can be exported to start a new shell, useful for ad-hoc work or when sdk/toolkits don't correctly assume roles.
-* subnets base and prefix - in networks.py, calculate how many subnets and what CIDRs are
+* subnets arguments base network CIDR and desired prefix, calculate how many subnets and what CIDRs are
+```
+(venv) bash$ subnets 10.0.0.0/23 25
+    Number of /25 subnets: 4, each subnet size: 128
+    10.0.0.0/25
+    10.0.0.128/25
+    10.0.1.0/25
+    10.0.1.128/25
+```
 ### Example
 
 Sample credentials file
