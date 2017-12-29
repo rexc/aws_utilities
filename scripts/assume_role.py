@@ -16,19 +16,20 @@ def read_credentials_file():
     return config
 
 
-def assume_role(config, profile_role, session_name="TestSession", duration=3600):
+def assume_role(config, profile_role, session_name=None, duration=3600):
     if not config.has_option(profile_role, 'role_arn') or not config.has_option(profile_role, 'source_profile'):
         print('"{}" does not have a "role_arn" set to assume or a "source_profile" set'.format(profile_role))
         sys.exit(-1)
 
     source = config[profile_role]['source_profile']
+    if session_name is None:
+        session_name = source
     client = boto3.client('sts',
                           aws_access_key_id=config[source]['aws_access_key_id'],
                           aws_secret_access_key=config[source]['aws_secret_access_key'],
                           )
 
     print('Attempting to assume role "{}"'.format(profile_role))
-
     if config.has_option(profile_role, 'mfa_serial'):
         mfa = config[profile_role]['mfa_serial']
         token = input('Enter code for {}: '.format(mfa))
